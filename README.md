@@ -1,104 +1,49 @@
-# Mobile Shop Business Software
+# MobileShop Business Software (Next.js)
 
-A full-stack business management system for a mobile phone shop: inventory
-(phones & accessories), point-of-sale checkout with invoicing, repair-ticket
-tracking, and customer/supplier management with a reporting dashboard.
+A full-stack Next.js App Router conversion of the original React/Vite + Express mobile shop manager. Inventory, point of sale, repairs, customers, suppliers, staff accounts and dashboards all run in one Next.js application backed by Prisma + SQLite.
 
-## Tech stack
+## Stack
 
-- **Backend:** Node.js, Express, Prisma ORM, SQLite, JWT authentication
-- **Frontend:** React (Vite), React Router, Tailwind CSS, Recharts
-- **Auth:** JWT bearer tokens, two roles (`admin`, `staff`)
+- Next.js 16 (App Router, Route Handlers, React 19)
+- TypeScript, Tailwind CSS v4, Recharts
+- Prisma 5 + SQLite
+- JWT auth stored in an httpOnly cookie
+- Zod validation on API routes
 
-## Features
-
-- **Inventory** — phones & accessories with SKU/IMEI, cost & selling price,
-  stock levels, low-stock thresholds, and supplier links.
-- **POS / Sales** — cart-based checkout that decrements stock atomically,
-  auto-generated invoice numbers, discounts/tax, payment method, refunds,
-  and full sales history.
-- **Repairs** — ticketed device repairs with status workflow (pending → in
-  progress → completed → delivered / cancelled), technician assignment, and
-  cost tracking.
-- **Customers & Suppliers** — contact records, purchase/repair history per
-  customer, and a "restock" flow per supplier that records a purchase and
-  increments stock.
-- **Dashboard** — today's/month's revenue, low-stock alerts, pending
-  repairs, inventory value, top-selling products, and a 14-day revenue
-  chart.
-- **Staff accounts** — admins can create/disable staff logins and control
-  who can delete records.
-
-## Project structure
-
-```
-backend/     Express API (Prisma + SQLite)
-frontend/    React + Vite single-page app
-```
-
-## Getting started
-
-### 1. Backend
+## Setup
 
 ```bash
-cd backend
 npm install
-cp .env.example .env       # adjust JWT_SECRET for production
-npx prisma migrate dev     # creates dev.db and applies the schema
-npm run seed                # creates demo admin/staff users + sample data
-npm run dev                 # starts the API on http://localhost:4000
+cp .env.example .env
+npm run setup     # prisma generate + db push + seed
+npm run dev
 ```
 
-Demo logins created by the seed script:
+Open <http://localhost:3000>.
 
-| Role  | Email                  | Password  |
-|-------|-------------------------|-----------|
-| Admin | admin@mobileshop.com    | admin123  |
-| Staff | staff@mobileshop.com    | staff123  |
+Demo logins:
 
-### 2. Frontend
+- Admin: `admin@mobileshop.com` / `admin123`
+- Staff: `staff@mobileshop.com` / `staff123`
 
-```bash
-cd frontend
-npm install
-npm run dev                 # starts the app on http://localhost:5173
-```
+## Scripts
 
-The Vite dev server proxies `/api` requests to `http://localhost:4000`, so
-run the backend first (or alongside).
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the Next.js dev server (port 3000 or `$PORT`). |
+| `npm run build` | Generate the Prisma client and build for production. |
+| `npm run start` | Start the production server. |
+| `npm run db:generate` | Regenerate the Prisma client. |
+| `npm run db:migrate` | Push the Prisma schema to SQLite. |
+| `npm run db:seed` | Seed demo users, products, customers, sales and repairs. |
+| `npm run setup` | Generate, migrate and seed in one command. |
 
-### 3. Build for production
+## Architecture
 
-```bash
-cd frontend && npm run build     # outputs static assets to frontend/dist
-cd backend && npm start          # run the API with `node src/index.js`
-```
+- `src/app/(app)/...` — authenticated App Router pages (dashboard, inventory, POS, repairs, customers, suppliers, users).
+- `src/app/api/...` — Route Handlers replacing the former Express routes, mounted under the same `/api` paths.
+- `src/components/` — client-side shell, auth provider, toast provider, icons and reusable UI primitives.
+- `src/lib/` — Prisma singleton, auth helpers, HTTP error handling, API client and shared types.
+- `prisma/` — SQLite schema and TypeScript seed script.
 
-Serve `frontend/dist` with any static host (or behind a reverse proxy in
-front of the API), and point it at the deployed backend's `/api` URL.
-
-## API overview
-
-All endpoints are namespaced under `/api` and (except `/api/auth/login`)
-require an `Authorization: Bearer <token>` header.
-
-| Resource   | Endpoints |
-|------------|-----------|
-| Auth       | `POST /auth/login`, `GET /auth/me`, `GET/POST /auth/users` (admin), `PATCH /auth/users/:id` (admin) |
-| Products   | `GET/POST /products`, `GET/PUT/DELETE /products/:id` |
-| Customers  | `GET/POST /customers`, `GET/PUT/DELETE /customers/:id` |
-| Suppliers  | `GET/POST /suppliers`, `GET/PUT/DELETE /suppliers/:id`, `POST /suppliers/:id/purchases` |
-| Sales      | `GET/POST /sales`, `GET /sales/:id`, `POST /sales/:id/refund` |
-| Repairs    | `GET/POST /repairs`, `GET/PATCH/DELETE /repairs/:id` |
-| Dashboard  | `GET /dashboard/summary`, `GET /dashboard/sales-by-day` |
-
-Sales and supplier purchases run inside database transactions so stock
-levels always stay consistent with recorded items.
-
-## Notes
-
-- SQLite is used for zero-config local development; swap the Prisma
-  `datasource` provider to `postgresql` and update `DATABASE_URL` to move to
-  Postgres in production — the schema and queries are portable.
-- Only `admin` users can delete records or manage staff accounts; `staff`
-  users can do everything else (sales, repairs, inventory edits, etc).
+Auth is enforced in Route Handlers with `requireUser` / `requireAdmin`. Login sets an httpOnly cookie; the client API helper sends it with every same-origin request. The original `backend/` and `frontend/` directories are retained for reference only and are not used by the Next.js app.
